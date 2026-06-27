@@ -1,34 +1,102 @@
 # web-research-hub-mcp-server
+### FastAPI · FastMCP · Streamable HTTP · Exa AI · Python
 
-A standalone MCP sidecar for [web-research-hub](https://github.com/Paul-Orlando/web-research-hub). Exposes 4 tools over Streamable HTTP so any MCP-compatible client (Claude Desktop, Claude.ai, custom agents) can call them directly.
+A standalone MCP server that exposes the Web Research Hub's core
+research capabilities as standardized tools over Streamable HTTP —
+callable by Claude Desktop, Claude.ai, or any MCP-compatible agent
+or client.
+
+Built as the infrastructure layer for
+[web-research-hub](https://github.com/Paul-Orlando/web-research-hub),
+this server separates tool execution from agent reasoning: the LLM
+stays in the research app, the tools live here.
+
+---
+
+## 🔗 Live Endpoint
+
+```
+https://web-research-hub-mcp-server-production.up.railway.app/mcp
+```
+
+Health check:
+```
+https://web-research-hub-mcp-server-production.up.railway.app/health
+```
+
+*(update these URLs with your actual Railway domain)*
 
 ---
 
 ## Architecture
 
 ```
-Client (Claude / agent)
+Client (Claude Desktop / Claude.ai / custom agent)
         │  POST /mcp  (MCP Streamable HTTP)
         ▼
   FastAPI + FastMCP
         │
-  ┌─────┴──────────────────────────────────┐
-  │  web_search   fetch_url   calculate   export_report  │
-  └─────┬──────────────┬────────────────────┘
-        │              │
-   Exa AI API      httpx + BS4     ast (stdlib)    fpdf2 / python-docx
+  ┌─────┴────────────────────────────────────────┐
+  │  web_search  fetch_url  calculate  export_report  │
+  └─────┬──────────────────────────────────────────┘
+        │
+   Exa AI API    httpx + BS4    ast (stdlib)    fpdf2 / python-docx
 ```
 
-- Transport: **Streamable HTTP** — clients POST to `/mcp`
-- Health check: `GET /health`
-- CORS: configurable via `CORS_ORIGIN_REGEX` env var (default: `https://.*\.vercel\.app`)
+- **Transport:** Streamable HTTP — clients POST to `/mcp`
+- **Health check:** `GET /health`
+- **CORS:** configurable via `CORS_ORIGIN_REGEX` env var
+
+---
+
+## How It Fits the Portfolio
+
+This server is part of a three-tier architecture:
+
+```
+Web Research Hub (frontend + FastAPI backend)
+  → calls this MCP server as a tool provider
+  → agents use web_search and fetch_url during research
+  → reports exported via export_report
+
+This MCP Server
+  → exposes 4 tools over Streamable HTTP
+  → no LLM calls inside — pure tool execution
+  → callable by any MCP-compatible client independently
+
+Pinecone Agentic Search MCP Server
+  → separate MCP server in this portfolio
+  → handles academic/vector search over ArXiv corpus
+  → uses SSE transport (contrast: this server uses
+    Streamable HTTP — the newer MCP spec standard)
+```
+
+The two MCP servers in this portfolio demonstrate both transport
+patterns (SSE and Streamable HTTP) and two different tool scopes
+(single-purpose vector search vs. broader research toolkit).
+
+---
+
+## What Makes This Different from the Pinecone MCP Server
+
+| | Pinecone MCP Server | This Server |
+|---|---|---|
+| Transport | SSE | Streamable HTTP |
+| Tools | 1 (`agentic-search`) | 4 (`web_search`, `fetch_url`, `calculate`, `export_report`) |
+| Data source | Pinecone vector store (ArXiv corpus) | Live web (Exa AI) + stdlib |
+| LLM calls | Yes (OpenRouter) | None — pure tool execution |
+| Purpose | Academic/research paper search | Web research tool layer |
 
 ---
 
 ## Tool Reference
 
 ### `web_search`
-Searches the live web via Exa AI.
+
+Searches the live web via Exa AI and returns structured results
+with title, URL, summary, and publication date. Use when the
+research query requires current, real-world web sources. Returns
+an empty results array on failure, never throws.
 
 | Parameter | Type | Default | Notes |
 |---|---|---|---|
@@ -50,7 +118,11 @@ Returns `results: []` on failure, never throws.
 ---
 
 ### `fetch_url`
-Fetches a URL and returns clean extracted text.
+
+Fetches a URL and returns clean extracted text, stripping HTML
+and truncating to the specified character limit. Use to go deeper
+on a specific source found during web search. Returns
+`success: false` on failure, never throws.
 
 | Parameter | Type | Default | Notes |
 |---|---|---|---|
@@ -61,12 +133,15 @@ Fetches a URL and returns clean extracted text.
 ```json
 { "url": "", "content": "", "title": "", "success": true }
 ```
-Returns `success: false` on failure, never throws.
 
 ---
 
 ### `calculate`
-Evaluates a safe arithmetic expression.
+
+Evaluates a safe arithmetic expression using Python's AST parser —
+no raw `eval()`. Use for numeric reasoning within research tasks
+(e.g. percentage changes, cost calculations, financial figures).
+Returns `result: null` with an error field on failure, never throws.
 
 | Parameter | Type | Default | Notes |
 |---|---|---|---|
@@ -79,12 +154,16 @@ Supported operators: `+  -  *  /  **  %  //`
 ```json
 { "expression": "(3 + 4) * 2", "result": 14, "description": null }
 ```
-Returns `result: null` with an `error` field on failure, never throws.
 
 ---
 
 ### `export_report`
-Exports a markdown string to PDF, DOCX, or MD, returned as base64.
+
+Exports a markdown string to PDF, DOCX, or MD and returns the
+file as a base64-encoded string. Citation links `[text](url)` are
+rendered as `text (domain.com)` in PDF and DOCX output so sources
+remain identifiable outside the browser. Returns `success: false`
+on failure, never throws.
 
 | Parameter | Type | Default | Notes |
 |---|---|---|---|
@@ -92,13 +171,36 @@ Exports a markdown string to PDF, DOCX, or MD, returned as base64.
 | `format` | string | required | `"pdf"`, `"docx"`, or `"md"` |
 | `title` | string | `null` | Prepended as H1; used in filename |
 
-Citation links `[text](url)` are rendered as `text (domain.com)` in PDF/DOCX output.
-
 **Response:**
 ```json
-{ "format": "pdf", "filename": "report.pdf", "content_base64": "...", "success": true }
+{
+  "format": "pdf",
+  "filename": "report.pdf",
+  "content_base64": "...",
+  "success": true
+}
 ```
-Returns `success: false` on failure, never throws.
+
+---
+
+## Design Constraints
+
+**No LLM calls inside this server.**
+Every tool is a pure function: input → deterministic output.
+The LLM reasoning (planning, orchestration, synthesis) stays in
+the Web Research Hub's FastAPI backend agents. This is the correct
+MCP pattern — tools are execution units, not reasoning units.
+
+**Every tool is non-throwing.**
+All external calls are wrapped in try/except. A tool that throws
+breaks the entire MCP session. Every tool returns a valid response
+object even on failure.
+
+**Tool descriptions are written as policies, not labels.**
+Each tool description specifies what it does, when to use it,
+and what it returns on failure — not just a one-line label.
+This matches the prompt engineering standard applied across every
+agent in this portfolio.
 
 ---
 
@@ -106,8 +208,8 @@ Returns `success: false` on failure, never throws.
 
 | Variable | Required | Description |
 |---|---|---|
-| `EXA_API_KEY` | Yes | Exa AI API key — get one at [exa.ai](https://exa.ai) |
-| `CORS_ORIGIN_REGEX` | No | Regex for allowed origins. Default: `https://.*\.vercel\.app` |
+| `EXA_API_KEY` | ✅ | Exa AI API key — get one at [exa.ai](https://exa.ai) |
+| `CORS_ORIGIN_REGEX` | optional | Regex for allowed origins. Default: `https://.*\.vercel\.app` |
 
 ---
 
@@ -143,25 +245,20 @@ curl http://localhost:8000/health
 
 ## Deployment
 
-### Render / Railway (recommended)
+### Railway (recommended)
 
-Both platforms detect the `Procfile` automatically.
+Railway detects the `Procfile` automatically.
 
-1. Push this repo to GitHub.
-2. Create a new **Web Service** pointing to the repo.
-3. Set the `EXA_API_KEY` environment variable in the platform dashboard.
-4. Deploy — the service starts with:
-   ```
-   uvicorn main:app --host 0.0.0.0 --port $PORT
-   ```
-
-### Heroku
-
-```bash
-heroku create
-heroku config:set EXA_API_KEY=your_key_here
-git push heroku main
+1. Push this repo to GitHub
+2. New project → Deploy from GitHub repo
+3. Root Directory: `/` (not a monorepo)
+4. Set `EXA_API_KEY` in the Variables tab
+5. Deploy — starts with:
 ```
+uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+6. Settings → Networking → Generate Domain
+7. Test: `GET https://your-url.up.railway.app/health`
 
 ---
 
@@ -173,10 +270,48 @@ Add this to your `claude_desktop_config.json`:
 {
   "mcpServers": {
     "web-research-hub": {
-      "url": "https://your-deployed-url.com/mcp"
+      "url": "https://your-railway-url.up.railway.app/mcp"
     }
   }
 }
 ```
 
 For local development use `http://localhost:8000/mcp`.
+
+---
+
+## Roadmap
+
+- [ ] `academic_search` tool — calls the Pinecone Agentic Search
+      MCP Server internally, making this server an MCP client of
+      another MCP server in this portfolio (three-tier pattern)
+- [ ] Source credibility scoring — weight academic/primary sources
+      higher than secondary commentary
+- [ ] Rate limiting per client
+- [ ] Tool call logging for observability
+
+---
+
+## Related Repos
+
+| Repo | Pattern | Stack |
+|---|---|---|
+| [web-research-hub](https://github.com/Paul-Orlando/web-research-hub) | Hierarchical 3-Agent Pipeline | Next.js · FastAPI · OpenRouter · Gemini 2.5 Flash · Exa AI |
+| [pinecone-mcp-server](https://github.com/Paul-Orlando/pinecone-mcp-server) | Custom MCP Server · Agentic RAG | Node.js · TypeScript · Pinecone · SSE |
+| [n8n-mcp-server-agentic-rag](https://github.com/Paul-Orlando/n8n-mcp-server-agentic-rag) | Agentic RAG + MCP Client | Node.js · Express · Pinecone · Gemini Flash 2.5 |
+
+---
+
+## Author
+
+Paul Orlando
+Creative Technologist | AI Agent Developer | Data Analytics
+🌐 [paulforlando.com](https://www.paulforlando.com) &nbsp;|&nbsp;
+💼 [LinkedIn](https://www.linkedin.com/in/paul-orlando-7841b5154) &nbsp;|&nbsp;
+🐙 [GitHub](https://github.com/Paul-Orlando)
+
+---
+
+## License
+
+MIT License
