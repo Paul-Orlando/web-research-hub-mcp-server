@@ -221,15 +221,6 @@ The key is compared against the `MCP_API_KEY` environment variable on the server
 `POST /mcp` is limited to **5 requests per IP address per hour**. Exceeding the limit returns HTTP 429. `GET /health` is not rate-limited.
 
 This is a portfolio demonstration server. To remove these limits, clone the repo and deploy your own instance with your own API keys.
-
----
-
-## Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `EXA_API_KEY` | ✅ | Exa AI API key — get one at [exa.ai](https://exa.ai) |
-| `MCP_API_KEY` | ✅ | Secret key callers must pass in the `X-API-Key` header |
 | `CORS_ORIGIN_REGEX` | optional | Regex for allowed origins. Default: `https://.*\.vercel\.app` |
 
 ---
