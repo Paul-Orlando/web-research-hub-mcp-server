@@ -24,7 +24,7 @@ MCP_API_KEY = os.getenv("MCP_API_KEY")
 
 _RATE_LIMIT_STORE: dict[str, deque] = defaultdict(deque)
 _WINDOW_SECONDS = 3600
-_MAX_REQUESTS = 5
+_MAX_REQUESTS = 10
 
 
 class MCPGatewayMiddleware(BaseHTTPMiddleware):

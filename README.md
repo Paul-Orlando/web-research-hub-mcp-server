@@ -218,7 +218,9 @@ The key is compared against the `MCP_API_KEY` environment variable on the server
 
 ## Rate Limits
 
-`POST /mcp` is limited to **5 requests per IP address per hour**. Exceeding the limit returns HTTP 429. `GET /health` is not rate-limited.
+`POST /mcp` is limited to **10 requests per IP address per hour**. Exceeding the limit returns HTTP 429. `GET /health` is not rate-limited.
+
+Note: one search generates 4–5 `/mcp` calls internally (MCP handshake + one tool call per subtask), so this limit allows approximately 2 complete Quick searches per hour.
 
 This is a portfolio demonstration server. To remove these limits, clone the repo and deploy your own instance with your own API keys.
 | `CORS_ORIGIN_REGEX` | optional | Regex for allowed origins. Default: `https://.*\.vercel\.app` |
