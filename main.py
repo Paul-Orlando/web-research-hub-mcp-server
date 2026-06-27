@@ -9,13 +9,17 @@ load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.server import TransportSecuritySettings
 
 from tools.calculate import calculate as _calculate
 from tools.export_report import export_report as _export_report
 from tools.fetch_url import fetch_url as _fetch_url
 from tools.web_search import web_search as _web_search
 
-mcp = FastMCP("web-research-hub")
+mcp = FastMCP(
+    "web-research-hub",
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+)
 
 
 @mcp.tool(
