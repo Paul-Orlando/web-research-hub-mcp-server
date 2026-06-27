@@ -1,4 +1,6 @@
 import os
+import time
+from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -6,15 +8,65 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.server import TransportSecuritySettings
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 
 from tools.calculate import calculate as _calculate
 from tools.export_report import export_report as _export_report
 from tools.fetch_url import fetch_url as _fetch_url
 from tools.web_search import web_search as _web_search
+
+MCP_API_KEY = os.getenv("MCP_API_KEY")
+
+_RATE_LIMIT_STORE: dict[str, deque] = defaultdict(deque)
+_WINDOW_SECONDS = 3600
+_MAX_REQUESTS = 5
+
+
+class MCPGatewayMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method == "POST" and request.url.path == "/mcp":
+            ip = (request.client.host if request.client else None) or "unknown"
+            now = time.monotonic()
+            timestamps = _RATE_LIMIT_STORE[ip]
+            while timestamps and timestamps[0] < now - _WINDOW_SECONDS:
+                timestamps.popleft()
+            if len(timestamps) >= _MAX_REQUESTS:
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "error": "Rate limit exceeded.",
+                        "message": (
+                            "This is a portfolio demonstration server "
+                            "limited to 5 requests per hour. Clone the repo and "
+                            "deploy your own instance: "
+                            "github.com/Paul-Orlando/web-research-hub-mcp-server"
+                        ),
+                    },
+                )
+            timestamps.append(now)
+
+            api_key = request.headers.get("X-API-Key")
+            if not api_key or api_key != MCP_API_KEY:
+                return JSONResponse(
+                    status_code=401,
+                    content={
+                        "error": "Unauthorized.",
+                        "message": (
+                            "This is a portfolio demonstration server. "
+                            "To use these tools, clone the repo and deploy your "
+                            "own instance with your own API keys: "
+                            "github.com/Paul-Orlando/web-research-hub-mcp-server"
+                        ),
+                    },
+                )
+
+        return await call_next(request)
+
 
 mcp = FastMCP(
     "web-research-hub",
@@ -80,6 +132,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="web-research-hub MCP Server", lifespan=lifespan)
 
 _CORS_REGEX = os.getenv("CORS_ORIGIN_REGEX", r"https://.*\.vercel\.app")
+
+app.add_middleware(MCPGatewayMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
