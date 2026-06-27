@@ -16,15 +16,13 @@ stays in the research app, the tools live here.
 ## 🔗 Live Endpoint
 
 ```
-https://web-research-hub-mcp-server-production.up.railway.app/mcp
+https://web-production-a8829.up.railway.app/mcp
 ```
 
 Health check:
 ```
-https://web-research-hub-mcp-server-production.up.railway.app/health
+https://web-production-a8829.up.railway.app/health
 ```
-
-*(update these URLs with your actual Railway domain)*
 
 ---
 
@@ -44,7 +42,7 @@ Client (Claude Desktop / Claude.ai / custom agent)
 ```
 
 - **Transport:** Streamable HTTP — clients POST to `/mcp`
-- **Health check:** `GET /health`
+- **Health check:** `GET /health` — public, no auth required
 - **CORS:** configurable via `CORS_ORIGIN_REGEX` env var
 
 ---
@@ -212,17 +210,33 @@ Every request to `POST /mcp` must include an `X-API-Key` header:
 X-API-Key: your-secret-key-here
 ```
 
-The key is compared against the `MCP_API_KEY` environment variable on the server. Missing or invalid keys return HTTP 401. `GET /health` requires no authentication.
+The key is compared against the `MCP_API_KEY` environment variable
+on the server. Missing or invalid keys return HTTP 401.
+`GET /health` requires no authentication.
 
 ---
 
 ## Rate Limits
 
-`POST /mcp` is limited to **10 requests per IP address per hour**. Exceeding the limit returns HTTP 429. `GET /health` is not rate-limited.
+`POST /mcp` is limited to **10 requests per IP address per hour**.
+Exceeding the limit returns HTTP 429. `GET /health` is not
+rate-limited.
 
-Note: one search generates 4–5 `/mcp` calls internally (MCP handshake + one tool call per subtask), so this limit allows approximately 2 complete Quick searches per hour.
+**Note:** one search generates 4-5 `/mcp` calls internally (MCP
+handshake + one tool call per subtask), so this limit allows
+approximately 2 complete Quick searches per hour.
 
-This is a portfolio demonstration server. To remove these limits, clone the repo and deploy your own instance with your own API keys.
+This is a portfolio demonstration server. To remove these limits,
+clone the repo and deploy your own instance with your own API keys.
+
+---
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `EXA_API_KEY` | ✅ | Exa AI API key — get one at [exa.ai](https://exa.ai) |
+| `MCP_API_KEY` | ✅ | Secret key callers must pass as `X-API-Key` header |
 | `CORS_ORIGIN_REGEX` | optional | Regex for allowed origins. Default: `https://.*\.vercel\.app` |
 
 ---
@@ -271,7 +285,8 @@ Railway detects the `Procfile` automatically.
 ```
 uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
-6. Settings → Networking → Generate Domain
+6. Settings → Networking → Generate Domain → set Target Port to
+   the port shown in deploy logs (typically `8080`)
 7. Test: `GET https://your-url.up.railway.app/health`
 
 ---
@@ -284,7 +299,7 @@ Add this to your `claude_desktop_config.json`:
 {
   "mcpServers": {
     "web-research-hub": {
-      "url": "https://your-railway-url.up.railway.app/mcp",
+      "url": "https://web-production-a8829.up.railway.app/mcp",
       "headers": {
         "X-API-Key": "your-key-here"
       }
@@ -293,7 +308,18 @@ Add this to your `claude_desktop_config.json`:
 }
 ```
 
-For local development use `http://localhost:8000/mcp` and set `MCP_API_KEY` in your local `.env`.
+For local development use `http://localhost:8000/mcp` and set
+`MCP_API_KEY` in your local `.env`.
+
+---
+
+## Usage Note
+
+This is a portfolio demonstration server with rate limiting and
+API key authentication. For production use, clone the repo and
+deploy your own instance with your own API keys — the `Procfile`
+and Railway deployment instructions above are included for exactly
+this purpose.
 
 ---
 
