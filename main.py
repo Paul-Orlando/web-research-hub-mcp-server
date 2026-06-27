@@ -30,11 +30,17 @@ _MAX_REQUESTS = 5
 class MCPGatewayMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.method == "POST" and request.url.path == "/mcp":
-            ip = (request.client.host if request.client else None) or "unknown"
+            forwarded_for = request.headers.get("X-Forwarded-For")
+            ip = (
+                forwarded_for.split(",")[0].strip()
+                if forwarded_for
+                else (request.client.host if request.client else None) or "unknown"
+            )
             now = time.monotonic()
             timestamps = _RATE_LIMIT_STORE[ip]
             while timestamps and timestamps[0] < now - _WINDOW_SECONDS:
                 timestamps.popleft()
+            print(f"[rate-limit] IP: {ip}, request count: {len(timestamps)}", flush=True)
             if len(timestamps) >= _MAX_REQUESTS:
                 return JSONResponse(
                     status_code=429,
