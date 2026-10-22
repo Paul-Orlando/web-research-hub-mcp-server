@@ -13,19 +13,6 @@ stays in the research app, the tools live here.
 
 ---
 
-## 🔗 Live Endpoint
-
-```
-https://web-production-a8829.up.railway.app/mcp
-```
-
-Health check:
-```
-https://web-production-a8829.up.railway.app/health
-```
-
----
-
 ## Architecture
 
 ```
@@ -299,7 +286,7 @@ Add this to your `claude_desktop_config.json`:
 {
   "mcpServers": {
     "web-research-hub": {
-      "url": "https://web-production-a8829.up.railway.app/mcp",
+      "url": "https://your-url.up.railway.app/mcp",
       "headers": {
         "X-API-Key": "your-key-here"
       }
