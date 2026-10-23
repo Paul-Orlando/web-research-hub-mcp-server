@@ -225,6 +225,7 @@ clone the repo and deploy your own instance with your own API keys.
 | `EXA_API_KEY` | ✅ | Exa AI API key — get one at [exa.ai](https://exa.ai) |
 | `MCP_API_KEY` | ✅ | Secret key callers must pass as `X-API-Key` header |
 | `CORS_ORIGIN_REGEX` | optional | Regex for allowed origins. Default: `https://.*\.vercel\.app` |
+| `RATE_LIMIT_MAX` | optional | Max `POST /mcp` requests per IP per hour. Default: `10`. Raise it for local evals. |
 
 ---
 
