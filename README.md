@@ -235,16 +235,19 @@ clone the repo and deploy your own instance with your own API keys.
 git clone https://github.com/Paul-Orlando/web-research-hub-mcp-server.git
 cd web-research-hub-mcp-server
 
-# 2. Install dependencies (requires uv: https://docs.astral.sh/uv/)
-#    Creates .venv with Python 3.13 and the exact versions in uv.lock
-uv sync
+# 2. Create a virtual environment
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 
-# 3. Configure environment
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Configure environment
 cp .env.example .env
 # Edit .env and add your EXA_API_KEY and MCP_API_KEY
 
-# 4. Run the server
-uv run uvicorn main:app --reload
+# 5. Run the server
+uvicorn main:app --reload
 ```
 
 Verify it's running:
@@ -253,58 +256,25 @@ curl http://localhost:8000/health
 # {"status":"ok","tools":["web_search","fetch_url","calculate","export_report"]}
 ```
 
-Dependencies are declared in `pyproject.toml` and locked in `uv.lock`.
-To change one, run `uv add <package>==<version>` (or edit
-`pyproject.toml` and run `uv lock`), then commit both files.
-
----
-
-## Project Structure
-
-```
-web-research-hub-mcp-server/
-├── main.py               # FastAPI app, FastMCP tools, auth + rate limiting
-├── tools/
-│   ├── web_search.py     # Exa AI search
-│   ├── fetch_url.py      # URL fetch + HTML text extraction
-│   ├── calculate.py      # Safe AST-based arithmetic
-│   └── export_report.py  # Markdown → PDF / DOCX / MD
-├── pyproject.toml        # Project metadata + pinned direct dependencies
-├── uv.lock               # Full locked dependency tree
-├── .python-version       # Python 3.13
-├── Dockerfile            # Production image (uv sync --frozen)
-├── .dockerignore
-└── .env.example
-```
-
 ---
 
 ## Deployment
 
 ### Railway (recommended)
 
-Railway detects the `Dockerfile` automatically and builds from it.
-The image installs dependencies with `uv sync --frozen --no-dev`, so
-every build uses exactly the versions in `uv.lock`.
+Railway detects the `Procfile` automatically.
 
 1. Push this repo to GitHub
 2. New project → Deploy from GitHub repo
 3. Root Directory: `/` (not a monorepo)
 4. Set `EXA_API_KEY` and `MCP_API_KEY` in the Variables tab
-5. Leave the Start Command empty — the Dockerfile starts the server with:
+5. Deploy — starts with:
 ```
 uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 6. Settings → Networking → Generate Domain → set Target Port to
    the port shown in deploy logs (typically `8080`)
 7. Test: `GET https://your-url.up.railway.app/health`
-
-### Docker (any host)
-
-```bash
-docker build -t web-research-hub-mcp-server .
-docker run --env-file .env -e PORT=8000 -p 8000:8000 web-research-hub-mcp-server
-```
 
 ---
 
@@ -334,7 +304,7 @@ For local development use `http://localhost:8000/mcp` and set
 
 This is a portfolio demonstration server with rate limiting and
 API key authentication. For production use, clone the repo and
-deploy your own instance with your own API keys — the `Dockerfile`
+deploy your own instance with your own API keys — the `Procfile`
 and Railway deployment instructions above are included for exactly
 this purpose.
 
