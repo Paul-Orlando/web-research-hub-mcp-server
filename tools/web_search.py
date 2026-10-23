@@ -13,7 +13,10 @@ async def web_search(
     end_date: Optional[str] = None,
 ) -> dict:
     try:
-        api_key = os.environ["EXA_API_KEY"]
+        api_key = os.environ.get("EXA_API_KEY")
+        if not api_key:
+            print("[web_search] EXA_API_KEY is not set; returning empty results", flush=True)
+            return {"results": [], "query": query, "total_results": 0}
 
         payload: dict = {
             "query": query,
@@ -50,5 +53,16 @@ async def web_search(
             for r in raw_results
         ]
         return {"results": results, "query": query, "total_results": len(results)}
-    except Exception:
+    except httpx.HTTPStatusError as e:
+        try:
+            body = e.response.text[:300]
+        except Exception:
+            body = "<unreadable>"
+        print(
+            f"[web_search] Exa HTTP {e.response.status_code}: {body!r}",
+            flush=True,
+        )
+        return {"results": [], "query": query, "total_results": 0}
+    except Exception as e:
+        print(f"[web_search] {type(e).__name__}: {e}", flush=True)
         return {"results": [], "query": query, "total_results": 0}

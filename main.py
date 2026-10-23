@@ -42,13 +42,18 @@ class MCPGatewayMiddleware(BaseHTTPMiddleware):
                 timestamps.popleft()
             print(f"[rate-limit] IP: {ip}, request count: {len(timestamps)}", flush=True)
             if len(timestamps) >= _MAX_REQUESTS:
+                print(
+                    f"[rate-limit] 429 for IP: {ip}, request count: {len(timestamps)} "
+                    f"(limit {_MAX_REQUESTS}/hour)",
+                    flush=True,
+                )
                 return JSONResponse(
                     status_code=429,
                     content={
                         "error": "Rate limit exceeded.",
                         "message": (
                             "This is a portfolio demonstration server "
-                            "limited to 5 requests per hour. Clone the repo and "
+                            f"limited to {_MAX_REQUESTS} requests per hour. Clone the repo and "
                             "deploy your own instance: "
                             "github.com/Paul-Orlando/web-research-hub-mcp-server"
                         ),
@@ -58,6 +63,13 @@ class MCPGatewayMiddleware(BaseHTTPMiddleware):
 
             api_key = request.headers.get("X-API-Key")
             if not api_key or api_key != MCP_API_KEY:
+                if not api_key:
+                    reason = "missing X-API-Key"
+                elif not MCP_API_KEY:
+                    reason = "MCP_API_KEY is not set on the server"
+                else:
+                    reason = "key mismatch"
+                print(f"[auth] 401 for IP: {ip}, auth failed: {reason}", flush=True)
                 return JSONResponse(
                     status_code=401,
                     content={
